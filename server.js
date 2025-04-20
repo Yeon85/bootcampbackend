@@ -66,11 +66,13 @@ app.use('/uploads', express.static('uploads'));
 const router = express.Router();
 
 const db = mysql.createConnection({
-  host: 'nozomi.proxy.rlwy.net',
-  user: 'root',
-  password: 'ZiDACevkGUVbIwdUZtwVswdRLkmNALAn',
-  database: 'railway',
+  host: 'nozomi.proxy.rlwy.net',  // Railway에서 제공한 host
+  port: 10904,                       // 포트 확인 (기본 3306)
+  user: 'root',                     // 유저명
+  password: 'ZiDACevkGUVbIwdUZtwVswdRLkmNALAn',             // 비밀번호
+  database: 'railway'          // DB 이름
 });
+
 
 db.connect();
 
