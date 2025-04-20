@@ -9,8 +9,8 @@ const fs = require('fs');
 
 const bodyParser = require('body-parser');
 const mysql = require('mysql2');
-const bcrypt = require('bcrypt');
-
+// const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const uploadFolder = 'uploads'; // 저장 폴더
 
 
