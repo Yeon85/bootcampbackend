@@ -771,6 +771,12 @@ app.post('/api/login', async (req, res) => {
 
 
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+// app.listen(5000, () => {
+//   console.log("Server running on port 5000");
+// });
+
+const PORT = process.env.PORT || 5000;  // ✅ 중요: Railway는 PORT 환경변수로 포트를 할당함
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
