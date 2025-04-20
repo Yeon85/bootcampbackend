@@ -66,10 +66,10 @@ app.use('/uploads', express.static('uploads'));
 const router = express.Router();
 
 const db = mysql.createConnection({
-  host: 'boot1-db.c7s6ai8cszkl.ap-northeast-2.rds.amazonaws.com',
-  user: 'master',
-  password: 'icanspeak',
-  database: 'boot1DB',
+  host: 'nozomi.proxy.rlwy.net',
+  user: 'root',
+  password: 'ZiDACevkGUVbIwdUZtwVswdRLkmNALAn',
+  database: 'railway',
 });
 
 db.connect();
@@ -730,8 +730,9 @@ app.post('/api/login', async (req, res) => {
               profileImage: user.profile_image, // 만약 profileImage 칼럼이 없으면 생략 가능
               job_title: user.job_title,
               birthday:user.birthday,
-              location: user.location
-              role_code:user.role_code
+              location: user.location,
+              role_code:user.role_code,
+              
           },
       });
   });
