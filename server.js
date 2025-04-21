@@ -273,7 +273,7 @@ app.post('/api/register', async (req, res) => {
               return res.status(500).send("회원가입 후 사용자 정보를 가져오는 데 실패했습니다.");
           }
 
-          const userResult[0];
+         // const userResult[0];
           res.send({
               message: '회원가입 성공!',
               user: {
