@@ -273,7 +273,7 @@ app.post('/api/register', async (req, res) => {
               return res.status(500).send("회원가입 후 사용자 정보를 가져오는 데 실패했습니다.");
           }
 
-          const user = userResult[0];
+          const userResult[0];
           res.send({
               message: '회원가입 성공!',
               user: {
@@ -282,6 +282,8 @@ app.post('/api/register', async (req, res) => {
                   email: user.email,
                   user_extra: user.user_extra, // (만약 user_extra 대신 extraCompleted를 원하면 이름 통일 필요)
                   profileImage: user.profile_image , // 만약 profileImage 칼럼이 없으면 생략 가능
+                  role_code: user.role_code,
+                  job_title: user.job_title,  
               }
           });
       });
@@ -450,14 +452,15 @@ app.post('/api/survey', async (req, res) => {
     question_attitude,
     one_word,
     hope,
+    curriculum,
     is_temp
   } = req.body;
 
   console.log('폼 데이터:', req.body);
 
   const sqlInsertSurvey = `
-    INSERT INTO user_survey (user_id, name, phone, call_name, experience, skills, computer_skill, goal, interest, study_style, question_attitude, one_word, hope)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO user_survey (user_id, name, phone, call_name, experience, skills, computer_skill, goal, interest, study_style, question_attitude, one_word, hope,curriculum)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
   `;
 
   const sqlUpdateUserExtra = `
@@ -471,7 +474,7 @@ app.post('/api/survey', async (req, res) => {
     }
 
     // 1. 설문지 저장
-    db.query(sqlInsertSurvey, [user_id, name, phone, call_name, experience, skills, computer_skill, goal, interest, study_style, question_attitude, one_word, hope], (err, result) => {
+    db.query(sqlInsertSurvey, [user_id, name, phone, call_name, experience, skills, computer_skill, goal, interest, study_style, question_attitude, one_word, hope,curriculum], (err, result) => {
       if (err) {
         console.error('설문 저장 에러:', err);
         return db.rollback(() => {
@@ -559,6 +562,7 @@ app.put('/api/survey/:id', (req, res) => {
     question_attitude,
     one_word,
     hope,
+    curriculum,
     is_temp
   } = req.body;
 
@@ -568,7 +572,7 @@ app.put('/api/survey/:id', (req, res) => {
   const sqlInsertSurvey = `
      UPDATE user_survey SET
        name = ?, phone = ?, call_name = ?, experience = ?, skills = ?,
-       computer_skill = ?, goal = ?, interest = ?, study_style = ?, question_attitude = ?, one_word = ?, hope = ?
+       computer_skill = ?, goal = ?, interest = ?, study_style = ?, question_attitude = ?, one_word = ?, hope = ?,curriculum=?
      WHERE user_id = ?
      `;
 
@@ -583,7 +587,7 @@ app.put('/api/survey/:id', (req, res) => {
     }
 
     // 1. 설문지 저장
-    db.query(sqlInsertSurvey, [name, phone, call_name, experience, skills, computer_skill, goal, interest, study_style, question_attitude, one_word, hope,user_id], (err, result) => {
+    db.query(sqlInsertSurvey, [name, phone, call_name, experience, skills, computer_skill, goal, interest, study_style, question_attitude, one_word, hope,curriculum,user_id], (err, result) => {
       if (err) {
         console.error('설문 저장 에러:', err);
         return db.rollback(() => {
