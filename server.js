@@ -284,6 +284,7 @@ app.post('/api/register', async (req, res) => {
                   profileImage: user.profile_image , // 만약 profileImage 칼럼이 없으면 생략 가능
                   role_code: user.role_code,
                   job_title: user.job_title,  
+                  user_code: user.user_code,
               }
           });
       });
