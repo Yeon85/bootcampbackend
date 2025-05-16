@@ -24,7 +24,10 @@ const cors = require('cors');
 // 동적으로 origin 설정
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://jinjoobootcamp-f3fq.vercel.app'
+  'http://localhost:5174',
+  'http://localhost:5176',
+  'https://jinjoobootcamp-f3fq.vercel.app',
+  'https://snack-chi.vercel.app',
 ];
 
 
@@ -75,6 +78,125 @@ const db = mysql.createConnection({
 
 
 db.connect();
+
+
+///api/messages
+
+// Node.js + Express 예시
+app.post('/api/messages', (req, res) => {
+  const { contactId, fromUserId, toUserId, text } = req.body;
+  
+  const sql = `
+    INSERT INTO messages (contactId, fromUserId, toUserId, text, created_at)
+    VALUES (?, ?, ?, ?, NOW())
+  `;
+
+  db.query(sql, [contactId, fromUserId, toUserId, text], (err, result) => {
+    if (err) {
+      console.error('메시지 저장 실패:', err);
+      return res.status(500).json({ success: false, message: 'DB 저장 실패' });
+    }
+    res.status(200).json({ success: true, message: '메시지 저장 완료' });
+  });
+});
+
+
+// 🔥정보 가져오기 API
+app.get('/api/contacts/:id', (req, res) => {
+  const userId = req.params.id;
+  
+  // contacts 쿼리
+  const contactsSql = `SELECT 
+                c.id AS contactId,
+                c.id AS contactType,
+                c.myUserId,
+                c.targetUserId,
+                c.name,
+                c.path,
+                c.active,
+                c.time AS lastSeenTime,
+                c.preview AS lastPreview,
+                m.text AS lastMessage,
+                m.created_at AS lastMessageTime
+              FROM contacts c
+              LEFT JOIN (
+                SELECT 
+                    contactId, 
+                    text, 
+                    created_at
+                FROM messages
+                WHERE id IN (
+                    SELECT MAX(id) 
+                    FROM messages 
+                    GROUP BY contactId
+                )
+              ) m ON c.id = m.contactId
+              WHERE c.myUserId = ?
+              ORDER BY m.created_at DESC, c.id ASC`;
+
+  // messages 쿼리
+  const messagesSql = `SELECT
+            contactId,
+            fromUserId,
+            toUserId,
+            text,
+            created_at
+            FROM messages
+            WHERE contactId IN (SELECT id FROM contacts WHERE myUserId = ?)
+            ORDER BY created_at ASC`;
+
+  db.query(contactsSql, [userId], (err, contactsResult) => {
+    if (err) {
+          console.error('DB 에러:', err);
+          return res.status(500).send('서버 오류');
+    }
+
+  db.query(messagesSql, [userId], (err2, messagesResult) => {
+    if (err2) {
+          console.error('DB 에러 (messages):', err2);
+          return res.status(500).send('서버 오류');
+    }
+
+    if (contactsResult.length === 0) {
+        return res.status(404).send('유저를 찾을 수 없습니다.');
+    }
+
+      // const contacts = contactsResult;
+      // const messages = messagesResult;
+      // res.send({
+      //     message: '유저 정보 조회 성공',
+      //     contacts: contacts,
+      //     messages: messages,
+       // 🔥 여기서 contacts + messages 매칭
+       const contactsWithMessages = contactsResult.map(contact => {
+        const contactMessages = messagesResult
+          .filter(msg => msg.contactId === contact.contactId)
+          .map(msg => ({
+            contactId: msg.contactId,
+            fromUserId: msg.fromUserId,
+            toUserId: msg.toUserId,
+            text: msg.text,
+            time: msg.created_at
+          }));
+
+        return {
+          userId: contact.targetUserId,      // userId는 targetUserId로
+          name: contact.name,
+          path: contact.path,
+          active: contact.active,
+          time: contact.lastSeenTime,
+          preview: contact.lastPreview,
+          messages: contactMessages
+        };
+      });
+
+      res.send({
+        message: '유저 정보 조회 성공',
+        contacts: contactsWithMessages,
+      });
+    });
+  });
+});
 
 
 // 🔥 유저 정보 가져오기 API
@@ -274,6 +396,7 @@ app.post('/api/register', async (req, res) => {
           }
 
          // const userResult[0];
+         const user = userResult[0];
           res.send({
               message: '회원가입 성공!',
               user: {
