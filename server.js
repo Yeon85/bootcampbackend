@@ -27,6 +27,7 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:5176',
   'https://jinjoobootcamp-f3fq.vercel.app',
+  'https://jinjoobootcamp-gomp.vercel.app',
   'https://snack-chi.vercel.app',
 ];
 
@@ -80,14 +81,20 @@ const db = mysql.createConnection({
 db.connect();
 
 
-///api/messages
-
 // Node.js + Express 예시
 app.post('/api/messages', (req, res) => {
   const { contactId, fromUserId, toUserId, text } = req.body;
   
+  console.log("contactId:"+contactId);
+  console.log("fromUserId:"+fromUserId);
+  console.log("toUserId:"+contactId);
+  console.log("contactId:"+contactId);
+
+
+
+
   const sql = `
-    INSERT INTO messages (contactId, fromUserId, toUserId, text, created_at)
+    INSERT INTO messages (contact_id, from_user_id, to_user_id, text, created_at)
     VALUES (?, ?, ?, ?, NOW())
   `;
 
@@ -100,17 +107,17 @@ app.post('/api/messages', (req, res) => {
   });
 });
 
-
 // 🔥정보 가져오기 API
 app.get('/api/contacts/:id', (req, res) => {
   const userId = req.params.id;
+  
   
   // contacts 쿼리
   const contactsSql = `SELECT 
                 c.id AS contactId,
                 c.id AS contactType,
-                c.myUserId,
-                c.targetUserId,
+                c.my_user_id as myUserId ,
+                c.target_user_id as targetUserId,
                 c.name,
                 c.path,
                 c.active,
@@ -121,44 +128,47 @@ app.get('/api/contacts/:id', (req, res) => {
               FROM contacts c
               LEFT JOIN (
                 SELECT 
-                    contactId, 
+                    contact_id, 
                     text, 
                     created_at
                 FROM messages
                 WHERE id IN (
                     SELECT MAX(id) 
                     FROM messages 
-                    GROUP BY contactId
+                    GROUP BY contact_id
                 )
-              ) m ON c.id = m.contactId
-              WHERE c.myUserId = ?
-              ORDER BY m.created_at DESC, c.id ASC`;
+              ) m ON c.id = m.contact_id
+              WHERE c.my_user_id = ? or c.target_user_id = ?
+              ORDER BY c.id ASC`;
+
+  console.log("[contactsSql]"+contactsSql);            
 
   // messages 쿼리
   const messagesSql = `SELECT
-            contactId,
-            fromUserId,
-            toUserId,
+            contact_id as contactId,
+            from_user_id as fromUserId,
+            to_user_id as toUserId,
             text,
             created_at
             FROM messages
-            WHERE contactId IN (SELECT id FROM contacts WHERE myUserId = ?)
+            WHERE contact_id IN (SELECT id FROM contacts WHERE my_user_id = ? or target_user_id = ?)
             ORDER BY created_at ASC`;
 
-  db.query(contactsSql, [userId], (err, contactsResult) => {
+  console.log("[messagesSql]"+messagesSql);        
+  db.query(contactsSql, [userId, userId], (err, contactsResult) => {
     if (err) {
           console.error('DB 에러:', err);
           return res.status(500).send('서버 오류');
     }
 
-  db.query(messagesSql, [userId], (err2, messagesResult) => {
+  db.query(messagesSql, [userId, userId], (err2, messagesResult) => {
     if (err2) {
           console.error('DB 에러 (messages):', err2);
           return res.status(500).send('서버 오류');
     }
 
     if (contactsResult.length === 0) {
-        return res.status(404).send('유저를 찾을 수 없습니다.');
+        return res.status(488).send('유저를 찾을 수 없습니다.');
     }
 
       // const contacts = contactsResult;
@@ -195,6 +205,65 @@ app.get('/api/contacts/:id', (req, res) => {
         contacts: contactsWithMessages,
       });
     });
+  });
+});
+
+// ✅ 연락처(친구) 추가 API (pool + async/await)
+app.post("/api/contacts", async (req, res) => {
+  console.log(req.body.myUserId);
+  console.log(req.body.targetUserId);
+  console.log(req.body.path);
+  console.log(req.body.name);
+
+  try {
+    const { myUserId, targetUserId, path, name } = req.body;
+    if (!myUserId || !targetUserId ) {
+      return res.status(400).json({ success: false, message: "필수값 누락" });
+    }
+
+db.beginTransaction(err => {
+  if (err) return;
+
+  db.query(
+    `INSERT INTO contacts (my_user_id, target_user_id, name, time)
+     VALUES (?, ?, ?, NOW())`,
+    [myUserId, targetUserId, name],
+    (err, result) => {
+      if (err) return db.rollback();
+
+      const contactId = result.insertId;
+
+      db.query(
+        `INSERT INTO messages (contact_id, from_user_id, to_user_id, text, created_at)
+         VALUES (?, ?, ?, ?, NOW())`,
+        [contactId, myUserId, targetUserId, '친구를 추가하였습니다.'],
+        err => {
+          if (err) return db.rollback();
+          db.commit();
+        }
+      );
+    }
+  );
+});
+res.json({ success: true, message: "연락처 추가 성공"})
+
+  } catch (err) {
+    console.error("연락처 추가 실패:", err);
+    return res.status(500).json({ success: false, message: "연락처 추가 실패" });
+  }
+});
+
+  
+app.delete('/api/contacts/:id', (req, res) => {
+
+  const id = req.params.id;
+  const userId = req.query.userId;
+  console.log("[userId]"+userId);
+
+  //"DELETE FROM contacts WHERE id = ? AND user_id = ?",
+  db.query('DELETE FROM contacts WHERE my_user_id = ? AND target_user_id = ? ', [id, userId], (err, result) => {
+      if (err) return res.status(500).send('삭제 실패');
+      res.send('삭제 완료');
   });
 });
 
