@@ -269,13 +269,15 @@ app.get('/api/contacts/:id', (req, res) => {
   });
 });
 
-
-// ✅ 연락처(친구) 추가 API
 // ✅ 연락처(친구) 추가 API
 app.post("/api/contacts", (req, res) => {
   const { myUserId, targetUserId, name } = req.body;
 
-  if (!myUserId || !targetUserId) {
+  console.log("myUserId:"+myUserId);
+  console.log("targetUserId:"+targetUserId);    
+  console.log("name:"+name);    
+
+  if (!myUserId ) {
     return res.status(400).json({ success: false, message: "필수값 누락" });
   }
 
@@ -289,9 +291,20 @@ app.post("/api/contacts", (req, res) => {
     db.query(
       `SELECT profile_image, name AS targetName
        FROM users
-       WHERE id = ?`,
+       WHERE name_id = ?`,
       [targetUserId],
       (err0, rows) => {
+
+
+        console.log("rows:"+rows);
+        console.log("rows.length:"+rows.length);
+  
+    if (rows.length === 0) {
+          return db.rollback(() =>
+            res.status(404).json({ success: false, message: "상대 유저가 없습니다." })
+          );
+        }
+
         if (err0) {
           console.error("users select 실패:", err0);
           return db.rollback(() =>
@@ -299,13 +312,9 @@ app.post("/api/contacts", (req, res) => {
           );
         }
 
-        if (!rows || rows.length === 0) {
-          return db.rollback(() =>
-            res.status(404).json({ success: false, message: "상대 유저가 없습니다." })
-          );
-        }
+      
 
-        const targetProfileImage = rows[0].profile_image || "profile-35.png";
+        const targetProfileImage = rows[0].profile_image || "/upload/user-profile.png";
         const contactName = name || rows[0].targetName || String(targetUserId); // name 없으면 targetName 사용
 
         // 2) contacts insert (✅ 조회한 profile_image를 path에)
@@ -314,6 +323,19 @@ app.post("/api/contacts", (req, res) => {
            VALUES (?, ?, ?, NOW(), ?)`,
           [myUserId, targetUserId, contactName, targetProfileImage],
           (err1, result) => {
+
+            console.log("err1:"+err1);
+            console.log("result:"+result);
+
+
+
+             if ( result === undefined) {
+              return db.rollback(() =>
+                res.status(404).json({ success: false, message: "이미연락처에 추가되어있습니다." })
+              );
+            }
+
+
             if (err1) {
               console.error("contacts insert 실패:", err1);
               return db.rollback(() =>
@@ -364,8 +386,11 @@ app.post("/api/contacts", (req, res) => {
 
 // ✅ 연락처 삭제 (기존 쿼리가 파라미터 순서가 좀 이상했음)
 // ✅ 연락처 삭제 API
-app.delete('/api/contacts/:contactId', (req, res) => {
-  const { contactId } = req.params;
+app.delete('/api/contacts/:myUserId', (req, res) => {
+
+  const { contactId} = req.body;
+
+  console.log("contactId:"+contactId);    
 
   if (!contactId) {
     return res.status(400).json({ success: false, message: 'contactId 필요' });
@@ -519,7 +544,7 @@ app.post('/api/register', async (req, res) => {
   const { userId, name, email, password } = req.body;
   const hashed = await bcrypt.hash(password, 10);
 
-  const sql = 'INSERT INTO users (name_id, name, email, password) VALUES (?, ?, ?, ?)';
+  const sql = 'INSERT INTO users (name_id, name, email, password, profile_image) VALUES (?, ?, ?, ?,"/uploads/user-profile.jpg")';
   db.query(sql, [userId, name, email, hashed], (err, result) => {
     if (err) return res.status(500).send("이미 가입된 이메일입니다.");
 
@@ -552,11 +577,11 @@ app.post('/api/login', async (req, res) => {
   const sql = 'SELECT * FROM users WHERE name_id = ?';
   db.query(sql, [email], async (err, result) => {
     if (err) return res.status(500).send('서버 오류 발생');
-    if (result.length === 0) return res.status(401).send('아이디가 존재하지 않습니다');
+    if (result.length === 0) return res.status(401).send('아이디가 존재하지 않습니다.');
 
     const user = result[0];
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).send('비밀번호가 일치하지 않습니다');
+    if (!isMatch) return res.status(401).send('비밀번호가 일치하지 않습니다.');
 
     res.send({
       message: '로그인 성공!',
