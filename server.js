@@ -549,10 +549,10 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
-  const sql = 'SELECT * FROM users WHERE email = ?';
+  const sql = 'SELECT * FROM users WHERE name_id = ?';
   db.query(sql, [email], async (err, result) => {
     if (err) return res.status(500).send('서버 오류 발생');
-    if (result.length === 0) return res.status(401).send('이메일이 존재하지 않습니다');
+    if (result.length === 0) return res.status(401).send('아이디가 존재하지 않습니다');
 
     const user = result[0];
     const isMatch = await bcrypt.compare(password, user.password);
