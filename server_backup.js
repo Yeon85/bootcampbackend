@@ -58,7 +58,7 @@ app.post('/api/login', async (req, res) => {
 
       // 로그인 성공
       res.send({
-          message: '로그인 성공!',
+          message: '로그인 성공! 환영합니다. ', 
           user: {
               id: user.id,             // ✅ 추가
               name: user.name,

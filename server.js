@@ -177,17 +177,22 @@ app.post('/api/messages', (req, res) => {
   });
 });
 
-// 🔥정보 가져오기 API (contacts + messages)
-app.get('/api/contacts/:id', (req, res) => {
-  const userId = Number(req.params.id);
 
+// 🔥친구리스트 정보 가져오기 API (contacts + messages)
+app.get('/api/contacts/:nameId', (req, res) => {
+  const nameId = req.params.nameId;
+
+  console.log("nameId:"+nameId);
   // contacts 쿼리 (마지막 메시지 join)
   const contactsSql = `
     SELECT 
       c.id AS contactId,
+      c.my_user_id as nameId,
       c.my_user_id as myUserId,
       c.target_user_id as targetUserId,
-      c.name,
+      CASE WHEN c.my_user_id != 'roa' THEN (select name from users where name_id = c.my_user_id)
+           WHEN c.target_user_id != 'roa' THEN  (select name from users where name_id = c.target_user_id)
+           END AS name,
       c.path,
       c.active,
       c.time AS lastSeenTime,
@@ -204,6 +209,10 @@ app.get('/api/contacts/:id', (req, res) => {
     ORDER BY c.id ASC
   `;
 
+  console.log("contactsSql:"+contactsSql);
+
+  // messages 쿼리 (내가 속한 모든 contact의 메시지들)  
+
   const messagesSql = `
     SELECT
       contact_id as contactId,
@@ -217,14 +226,16 @@ app.get('/api/contacts/:id', (req, res) => {
     )
     ORDER BY created_at ASC
   `;
+  console.log("messagesSql:"+messagesSql);
 
-  db.query(contactsSql, [userId, userId], (err, contactsResult) => {
+  // ✅ contacts 먼저 조회  
+  db.query(contactsSql, [nameId, nameId], (err, contactsResult) => {
     if (err) {
       console.error('DB 에러:', err);
       return res.status(500).send('서버 오류');
     }
 
-    db.query(messagesSql, [userId, userId], (err2, messagesResult) => {
+    db.query(messagesSql, [nameId, nameId], (err2, messagesResult) => {
       if (err2) {
         console.error('DB 에러 (messages):', err2);
         return res.status(500).send('서버 오류');
@@ -247,11 +258,21 @@ app.get('/api/contacts/:id', (req, res) => {
           }));
 
         // ✅ 상대방 userId 계산 (내가 myUserId이면 상대는 targetUserId, 반대면 myUserId)
-        const otherUserId = (contact.myUserId === userId) ? contact.targetUserId : contact.myUserId;
+        const otherUserId = (contact.myUserId === nameId) ? contact.targetUserId : contact.myUserId;
+
+
+        console.log("nameId:"+nameId);
+        console.log("[여기]contactId:"+contact.contactId);
+        console.log("[여기]otherUserId:"+otherUserId);          
+  
+        
+        console.log("[여기]contact.myUserId:"+contact.myUserId);  
+        console.log("[여기]contact.targetUserId:"+contact.targetUserId);    
+
 
         return {
           contactId: contact.contactId,   // ✅ 프론트에서 꼭 필요 (room id)
-          userId: otherUserId,            // ✅ 채팅 상대 id
+          nameId: contact.myUserId,            // ✅ 내아이디 
           name: contact.name,
           path: contact.path,
           active: contact.active,
@@ -271,13 +292,13 @@ app.get('/api/contacts/:id', (req, res) => {
 
 // ✅ 연락처(친구) 추가 API
 app.post("/api/contacts", (req, res) => {
-  const { myUserId, targetUserId, name } = req.body;
-
-  console.log("myUserId:"+myUserId);
+  const { nameId, targetUserId, name } = req.body;
+//myUserId:71
+  console.log("nameId:"+nameId);
   console.log("targetUserId:"+targetUserId);    
   console.log("name:"+name);    
 
-  if (!myUserId ) {
+  if (!nameId ) {
     return res.status(400).json({ success: false, message: "필수값 누락" });
   }
 
@@ -312,8 +333,6 @@ app.post("/api/contacts", (req, res) => {
           );
         }
 
-      
-
         const targetProfileImage = rows[0].profile_image || "/upload/user-profile.png";
         const contactName = name || rows[0].targetName || String(targetUserId); // name 없으면 targetName 사용
 
@@ -321,7 +340,7 @@ app.post("/api/contacts", (req, res) => {
         db.query(
           `INSERT INTO contacts (my_user_id, target_user_id, name, time, path)
            VALUES (?, ?, ?, NOW(), ?)`,
-          [myUserId, targetUserId, contactName, targetProfileImage],
+          [nameId, targetUserId, contactName, targetProfileImage],
           (err1, result) => {
 
             console.log("err1:"+err1);
@@ -349,7 +368,7 @@ app.post("/api/contacts", (req, res) => {
             db.query(
               `INSERT INTO messages (contact_id, from_user_id, to_user_id, text, created_at)
                VALUES (?, ?, ?, ?, NOW())`,
-              [contactId, myUserId, targetUserId, "친구를 추가하였습니다."],
+              [contactId, nameId, targetUserId, "친구를 추가하였습니다."],
               (err2) => {
                 if (err2) {
                   console.error("messages insert 실패:", err2);
@@ -384,9 +403,8 @@ app.post("/api/contacts", (req, res) => {
 });
 
 
-// ✅ 연락처 삭제 (기존 쿼리가 파라미터 순서가 좀 이상했음)
 // ✅ 연락처 삭제 API
-app.delete('/api/contacts/:myUserId', (req, res) => {
+app.delete('/api/contacts/:nameId', (req, res) => {
 
   const { contactId} = req.body;
 
@@ -445,11 +463,11 @@ app.delete('/api/contacts/:myUserId', (req, res) => {
 
 
 // 🔥 유저 정보 가져오기 API
-app.get('/api/user/:id', (req, res) => {
-  const userId = req.params.id;
+app.get('/api/user/:name_id', (req, res) => {
+  const nameId = req.params.name_id;
   const sql = 'SELECT * FROM users WHERE id = ?';
 
-  db.query(sql, [userId], (err, result) => {
+  db.query(sql, [nameId], (err, result) => {
     if (err) return res.status(500).send('서버 오류');
     if (result.length === 0) return res.status(404).send('유저를 찾을 수 없습니다.');
 
@@ -524,15 +542,18 @@ app.put('/api/user/update', (req, res) => {
 app.post('/api/upload-profile', upload.single('profile'), (req, res) => {
   try {
     const filePath = '/' + req.file.path.replace(/\\/g, '/');
-    const userId = req.body.userId;
+    const nameId = req.body.nameId;
 
-    if (!userId) return res.status(400).send('userId가 필요합니다.');
+    if (!nameId) return res.status(400).send('ID가 필요합니다.');
 
-    const sql = 'UPDATE users SET profile_image = ? WHERE id = ?';
-    db.query(sql, [filePath, userId], (err, result) => {
+    const sql = 'UPDATE users SET profile_image = ? WHERE name_id = ?';
+    db.query(sql, [filePath, nameId], (err, result) => {
       if (err) return res.status(500).send('DB 업데이트 실패');
       res.send({ filePath });
     });
+
+    //여기  'UPDATE users SET profile_image = ? WHERE name_id = ?'; 
+
   } catch (error) {
     console.error(error);
     res.status(500).send('파일 업로드 실패');
@@ -541,11 +562,11 @@ app.post('/api/upload-profile', upload.single('profile'), (req, res) => {
 
 // ✅ 회원가입
 app.post('/api/register', async (req, res) => {
-  const { userId, name, email, password } = req.body;
+  const { nameId, name, email, password } = req.body;
   const hashed = await bcrypt.hash(password, 10);
 
   const sql = 'INSERT INTO users (name_id, name, email, password, profile_image) VALUES (?, ?, ?, ?,"/uploads/user-profile.jpg")';
-  db.query(sql, [userId, name, email, hashed], (err, result) => {
+  db.query(sql, [nameId, name, email, hashed], (err, result) => {
     if (err) return res.status(500).send("이미 가입된 이메일입니다.");
 
     const findUserSql = 'SELECT * FROM users WHERE email = ?';
@@ -588,6 +609,7 @@ app.post('/api/login', async (req, res) => {
       user: {
         id: user.id,
         name: user.name,
+        nameId: user.name_id,
         email: user.email,
         user_extra: user.user_extra,
         profileImage: user.profile_image,
