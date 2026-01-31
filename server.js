@@ -185,28 +185,34 @@ app.get('/api/contacts/:nameId', (req, res) => {
   console.log("nameId:"+nameId);
   // contacts 쿼리 (마지막 메시지 join)
   const contactsSql = `
-    SELECT 
-      c.id AS contactId,
-      c.my_user_id as nameId,
-      c.my_user_id as myUserId,
-      c.target_user_id as targetUserId,
-      CASE WHEN c.my_user_id != 'roa' THEN (select name from users where name_id = c.my_user_id)
-           WHEN c.target_user_id != 'roa' THEN  (select name from users where name_id = c.target_user_id)
-           END AS name,
-      c.path,
-      c.active,
-      c.time AS lastSeenTime,
-      c.preview AS lastPreview,
-      m.text AS lastMessage,
-      m.created_at AS lastMessageTime
-    FROM contacts c
-    LEFT JOIN (
-      SELECT contact_id, text, created_at
-      FROM messages
-      WHERE id IN (SELECT MAX(id) FROM messages GROUP BY contact_id)
-    ) m ON c.id = m.contact_id
-    WHERE c.my_user_id = ? OR c.target_user_id = ?
-    ORDER BY c.id ASC
+
+  SELECT
+    c.id AS contactId,
+    'roa' AS nameId,  -- 내 아이디는 그냥 파라미터로 고정
+    CASE 
+      WHEN c.my_user_id = 'roa' THEN c.target_user_id
+      ELSE c.my_user_id
+    END AS targetUserId,
+ u.name AS name,
+    u.profile_image AS path,      
+    c.active,
+    c.time AS lastSeenTime,
+    c.preview AS lastPreview,
+    m.text AS lastMessage,
+    m.created_at AS lastMessageTime
+  FROM contacts c
+  JOIN users u 
+    ON u.name_id = CASE 
+      WHEN c.my_user_id = 'roa' THEN c.target_user_id
+      ELSE c.my_user_id
+    END
+  LEFT JOIN (
+    SELECT contact_id, text, created_at
+    FROM messages
+    WHERE id IN (SELECT MAX(id) FROM messages GROUP BY contact_id)
+  ) m ON c.id = m.contact_id
+  WHERE c.my_user_id = 'roa' OR c.target_user_id = 'roa'
+  ORDER BY c.id ASC
   `;
 
   console.log("contactsSql:"+contactsSql);
@@ -229,7 +235,7 @@ app.get('/api/contacts/:nameId', (req, res) => {
   console.log("messagesSql:"+messagesSql);
 
   // ✅ contacts 먼저 조회  
-  db.query(contactsSql, [nameId, nameId], (err, contactsResult) => {
+  db.query(contactsSql, [nameId, nameId, nameId, nameId, nameId, nameId, nameId, nameId], (err, contactsResult) => {
     if (err) {
       console.error('DB 에러:', err);
       return res.status(500).send('서버 오류');
@@ -257,22 +263,16 @@ app.get('/api/contacts/:nameId', (req, res) => {
             time: msg.created_at,
           }));
 
-        // ✅ 상대방 userId 계산 (내가 myUserId이면 상대는 targetUserId, 반대면 myUserId)
-        const otherUserId = (contact.myUserId === nameId) ? contact.targetUserId : contact.myUserId;
-
-
+        // ✅ 상대방 userId 계산 (내가  상대는 targetUserId, 반대면 )
         console.log("nameId:"+nameId);
         console.log("[여기]contactId:"+contact.contactId);
-        console.log("[여기]otherUserId:"+otherUserId);          
-  
-        
-        console.log("[여기]contact.myUserId:"+contact.myUserId);  
         console.log("[여기]contact.targetUserId:"+contact.targetUserId);    
 
-
+        console.log("contact:"+JSON.stringify(contact));
         return {
           contactId: contact.contactId,   // ✅ 프론트에서 꼭 필요 (room id)
-          nameId: contact.myUserId,            // ✅ 내아이디 
+          nameId: contact.nameId,            // ✅ 내아이디 
+          targetUserId: contact.targetUserId,  // ✅ 상대방 아이디
           name: contact.name,
           path: contact.path,
           active: contact.active,
@@ -293,7 +293,7 @@ app.get('/api/contacts/:nameId', (req, res) => {
 // ✅ 연락처(친구) 추가 API
 app.post("/api/contacts", (req, res) => {
   const { nameId, targetUserId, name } = req.body;
-//myUserId:71
+
   console.log("nameId:"+nameId);
   console.log("targetUserId:"+targetUserId);    
   console.log("name:"+name);    
@@ -604,12 +604,15 @@ app.post('/api/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).send('비밀번호가 일치하지 않습니다.');
 
+    console.log("sql:"+sql);  
+    console.log("user.password:"+user.password);
     res.send({
       message: '로그인 성공!',
       user: {
         id: user.id,
         name: user.name,
         nameId: user.name_id,
+        password:user.password,
         email: user.email,
         user_extra: user.user_extra,
         profileImage: user.profile_image,
