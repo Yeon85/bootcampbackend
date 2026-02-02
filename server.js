@@ -25,16 +25,22 @@ if (!fs.existsSync(uploadFolder)) {
 // CORS
 // -------------------------
 const allowedOrigins = [
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'http://localhost:4174',
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'http://localhost:5176',
   'https://jinjoobootcamp-f3fq.vercel.app',
   'https://jinjoobootcamp-gomp.vercel.app',
   'https://snack-chi.vercel.app',
+
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
+    
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
@@ -188,12 +194,12 @@ app.get('/api/contacts/:nameId', (req, res) => {
 
   SELECT
     c.id AS contactId,
-    'roa' AS nameId,  -- 내 아이디는 그냥 파라미터로 고정
+    ? AS nameId,  -- 내 아이디는 그냥 파라미터로 고정
     CASE 
-      WHEN c.my_user_id = 'roa' THEN c.target_user_id
+      WHEN c.my_user_id = ? THEN c.target_user_id
       ELSE c.my_user_id
     END AS targetUserId,
- u.name AS name,
+    u.name AS name,
     u.profile_image AS path,      
     c.active,
     c.time AS lastSeenTime,
@@ -203,7 +209,7 @@ app.get('/api/contacts/:nameId', (req, res) => {
   FROM contacts c
   JOIN users u 
     ON u.name_id = CASE 
-      WHEN c.my_user_id = 'roa' THEN c.target_user_id
+      WHEN c.my_user_id = ? THEN c.target_user_id
       ELSE c.my_user_id
     END
   LEFT JOIN (
@@ -211,7 +217,7 @@ app.get('/api/contacts/:nameId', (req, res) => {
     FROM messages
     WHERE id IN (SELECT MAX(id) FROM messages GROUP BY contact_id)
   ) m ON c.id = m.contact_id
-  WHERE c.my_user_id = 'roa' OR c.target_user_id = 'roa'
+  WHERE c.my_user_id = ? OR c.target_user_id = ?
   ORDER BY c.id ASC
   `;
 
@@ -235,7 +241,7 @@ app.get('/api/contacts/:nameId', (req, res) => {
   console.log("messagesSql:"+messagesSql);
 
   // ✅ contacts 먼저 조회  
-  db.query(contactsSql, [nameId, nameId, nameId, nameId, nameId, nameId, nameId, nameId], (err, contactsResult) => {
+  db.query(contactsSql, [nameId, nameId, nameId, nameId, nameId], (err, contactsResult) => {
     if (err) {
       console.error('DB 에러:', err);
       return res.status(500).send('서버 오류');
