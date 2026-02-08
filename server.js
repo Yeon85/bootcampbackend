@@ -34,7 +34,7 @@ const allowedOrigins = [
   'http://localhost:5176',
   'https://jinjoobootcamp-f3fq.vercel.app',
   'https://jinjoobootcamp-gomp.vercel.app',
-  'https://jinjoobootcamp*',
+  'https://jinjoobootcamp-trfz.vercel.app',
   'https://snack-chi.vercel.app',
 
 ];
