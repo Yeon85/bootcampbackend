@@ -32,6 +32,7 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://127.0.0.1:5174',
   'http://localhost:5176',
+  'https://jinjoobootcamp.vercel.app',
   'https://jinjoobootcamp-f3fq.vercel.app',
   'https://jinjoobootcamp-gomp.vercel.app',
   'https://jinjoobootcamp-trfz.vercel.app',
@@ -203,7 +204,7 @@ app.get('/api/contacts/:nameId', (req, res) => {
     u.name AS name,
     u.profile_image AS path,      
     c.active,
-    c.time AS lastSeenTime,
+    m.created_at AS lastSeenTime,
     c.preview AS lastPreview,
     m.text AS lastMessage,
     m.created_at AS lastMessageTime
